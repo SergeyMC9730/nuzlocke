@@ -13,6 +13,7 @@ using namespace geode::prelude;
 #include <Geode/binding/CCCircleWave.hpp>
 #include <Geode/cocos/particle_nodes/CCParticleSystemQuad.h>
 #include <Geode/binding/FMODAudioEngine.hpp>
+#include <Geode/modify/PauseLayer.hpp>
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/modify/MenuLayer.hpp>
 
@@ -23,6 +24,73 @@ using namespace geode::prelude;
 #include <istream>
 #include <filesystem>
 
+class NGJGarageLayer;
+
+class NewAccountProtocol : public FLAlertLayerProtocol {
+public:
+	void FLAlert_Clicked(FLAlertLayer *p0, bool p1) {
+		if (p1) return FLAlertLayerProtocol::FLAlert_Clicked(p0, p1);
+
+		CCScene *scene = CCScene::get();
+		auto help = AccountHelpLayer::create();
+
+		scene->addChild(help, 1000);
+
+		help->enterLayer();
+
+		FLAlertLayerProtocol::FLAlert_Clicked(p0, p1);
+	}
+};
+
+#include <functional>
+
+class GiveUpProtocol : public FLAlertLayerProtocol {
+private:
+	bool _outsideGarage = false;
+
+	std::vector<int> *_deadIcons;
+	std::unordered_map<int, std::string> *_iconNames;
+
+	std::function<void(void)> _saveFunc;
+public:
+	GiveUpProtocol(std::vector<int> *deadIcons, std::unordered_map<int, std::string> *iconNames, std::function<void(void)> saveFunc) {
+		_deadIcons = deadIcons;
+		_iconNames = iconNames;
+		_saveFunc = saveFunc;
+	}
+
+	void resetNuzlocke() {
+		_deadIcons->clear();
+		_iconNames->clear();
+
+		_saveFunc();
+	}
+
+	void FLAlert_Clicked(FLAlertLayer *p0, bool p1) {
+		FLAlertLayerProtocol::FLAlert_Clicked(p0, p1);
+
+		if (p1 == true) {
+			resetNuzlocke();
+
+			if (_outsideGarage) {
+				FLAlertLayer::create("Nuzlocke", "Nuzlocke Challenge progress <cr>has been reseted.</c>", "OK")->show();
+			} else {
+				auto scene = GJGarageLayer::scene();
+				auto transition = CCTransitionFade::create(0.5f, scene);
+
+				CCDirector::sharedDirector()->replaceScene(transition);
+			}
+		}
+	}
+
+	void setupOutsideGarage() {
+		_outsideGarage = true;
+	}
+	void setupInsideGarage() {
+		_outsideGarage = false;
+	}
+};
+
 namespace NGlobal {
 	bool garageDestroyIcon = false;
 	bool garageCountIcons = false;
@@ -30,6 +98,10 @@ namespace NGlobal {
 	std::vector<int> deadIcons = {};
 	std::unordered_map<int, std::string> iconNames = {};
 	bool garageBeginIconSelect = false;
+	NGJGarageLayer *currentGarage;
+	bool newAccountPopupShown = false;
+	NewAccountProtocol popup;
+	GiveUpProtocol *giveUp;
 
 	void save() {
 		nlohmann::json main;
@@ -37,6 +109,7 @@ namespace NGlobal {
 		main["dead-icons"] = deadIcons;
 		main["icon-data"] = nlohmann::json();
 		main["icon-data"]["names"] = iconNames;
+		main["new-account-popup-shown"] = newAccountPopupShown;
 
 		std::string text = main.dump();
 
@@ -85,6 +158,24 @@ namespace NGlobal {
 				}
 			}
 		}
+
+		if (main.contains("new-account-popup-shown")) {
+			newAccountPopupShown = main["new-account-popup-shown"].get<bool>();
+		}
+	}
+
+	void setupProtocols() {
+		giveUp = new GiveUpProtocol(&deadIcons, &iconNames, NGlobal::save);
+	}
+
+	void printNewIconError() {
+		FLAlertLayer::create(giveUp, "Nuzlocke", "You have to <cy>choose new icon</c> before playing levels.", "OK", "Give Up")->show();
+	}
+	void printDeadIconError() {
+		FLAlertLayer::create(giveUp, "Nuzlocke", "You <cr>cannot</c> play levels with <cy>killed icon</c>.", "OK", "Give Up")->show();
+	}
+	void printResetPopup() {
+		FLAlertLayer::create(giveUp, "Nuzlocke", "Are you sure you want to <cy>reset Nuzlocke progress</c>?", "No", "Yes")->show();
 	}
 };
 
@@ -93,7 +184,25 @@ class $modify(NPlayLayer, PlayLayer) {
 	float player_x_new;
 	float player_x_delta;
 
-	bool levelStarted;
+	bool levelStarted = false;
+	bool runningAnimation = false;
+
+	bool isPlayerDead() {
+		return m_player1->m_isDead || m_player2->m_isDead;
+	}
+
+	void saveKilledPlayer() {
+		if (NGlobal::destroyID != 0) return;
+
+		GameManager *manager = GameManager::get();
+		int frame = manager->getPlayerFrame();
+
+		NGlobal::destroyID = frame;
+
+		log::info("player frame: {}", frame);
+		NGlobal::deadIcons.push_back(NGlobal::destroyID);
+		NGlobal::save();
+	}
 
 	void updateVisibility(float delta) {
 		PlayLayer::updateVisibility(delta);
@@ -104,17 +213,14 @@ class $modify(NPlayLayer, PlayLayer) {
 		m_fields->player_x_delta = m_fields->player_x_new - m_fields->player_x_old;
 
 		if (m_fields->player_x_delta != 0.f) m_fields->levelStarted = true;
+
+		if (isPlayerDead()) {
+			saveKilledPlayer();
+		}
 	}
 	
 	void setupIconLoss(float delta) {
 		NGlobal::garageDestroyIcon = true;
-
-		GameManager *manager = GameManager::get();
-		int frame = manager->getPlayerFrame();
-
-		NGlobal::destroyID = frame;
-
-		log::info("player frame: {}", frame);
 
 		auto scene = GJGarageLayer::scene();
 		auto transition = CCTransitionFade::create(1.f, scene);
@@ -147,7 +253,7 @@ class $modify(NPlayLayer, PlayLayer) {
 	void resetLevel() {
 		// bool softEnable = Mod::get()->getSettingValue<bool>("soft-enable");
 
-		if (m_fields->levelStarted) {
+		if (isPlayerDead()) {
 			beginIconLoss();
 		} else {
 			PlayLayer::resetLevel();
@@ -158,8 +264,26 @@ class $modify(NPlayLayer, PlayLayer) {
 		if (!PlayLayer::init(level, a, b)) return false;
 
 		NGlobal::garageDestroyIcon = false;
+		NGlobal::destroyID = 0;
 
 		return true;
+	}
+
+	bool canPauseGame() {
+		if (m_fields->runningAnimation == true) return false;
+		
+		return PlayLayer::canPauseGame();
+	}
+
+	void showRetryLayer() {
+		if (NGlobal::destroyID != 0) return;
+
+		PlayLayer::canPauseGame();
+	}
+
+	void fullReset() {
+		log::info("FullReset()");
+		PlayLayer::fullReset();
 	}
 };
 
@@ -417,7 +541,11 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 	float _currentSoundVol = 1.f;
 	CCMenuItemSpriteExtra *_targetedIcon;
 	CCMenuItemSpriteExtra *_selectedIcon;
+	int _targetedIconID = 0;
+	int _selectedIconID = 0;
+	int _currentIconID = 0;
 	bool _clickedOnLockedIcon = false;
+	IconType _pageType;
 
 	// std::unordered_map<CCMenuItemSpriteExtra *, bool> _iconTable;
 
@@ -471,10 +599,6 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 		runAction(cocos2d::CCEaseInOut::create(cocos2d::CCMoveTo::create(1.f, pointInSpace), 2.f));
 	}
 
-	void replaceIcon(float delta) {
-
-	}
-
 	void playDEffect1(float delta) {
 		FMODAudioEngine *engine = FMODAudioEngine::sharedEngine();
 		engine->playEffect("explode_11.ogg", 1.f, 0.5f, m_fields->_currentSoundVol);
@@ -503,6 +627,8 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 		addChild(base, 9999);
 
 		scheduleOnce(schedule_selector(NGJGarageLayer::beginGarageRestart), 1.3f);
+
+		NGlobal::destroyID = 0;
 	}
 
 	void addDeadScreen(float delta) {
@@ -557,16 +683,43 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 
 		log::info("pos: {}", pos);
 
-		NGlobal::deadIcons.push_back(NGlobal::destroyID);
 		NGlobal::garageBeginIconSelect = true;
-
-		NGlobal::save();
 	}
 
 	void setupDestroyAnimation(bool final) {
 		float time = 2.f;
 
 		scheduleOnce(schedule_selector(NGJGarageLayer::setupDestroyAnimationGeneric), time);
+	}
+
+	void setupTestAnimation() {
+		// NGlobal::garageDestroyIcon = true;
+		// NGlobal::destroyID = 16;
+		// NGlobal::deadIcons.clear();
+		// for (int i = 0; i < 16; i++) {
+		// 	NGlobal::deadIcons.push_back(i);
+		// }
+	}
+
+	int getPlayerFrame() {
+		GameManager *manager = GameManager::get();
+		int frame = manager->getPlayerFrame();
+
+		return frame;
+	}
+
+	void setupVariables() {
+		auto menu = findIconsPage();
+
+		m_fields->_processingAnimation = false;
+		m_fields->_targetedIcon = (CCMenuItemSpriteExtra *)menu->getChildByTag(NGlobal::destroyID);
+		m_fields->_targetedIconID = NGlobal::destroyID;
+		m_fields->_currentIconID = m_currentIcon->getTag();
+
+		int frame = getPlayerFrame();
+
+		m_fields->_selectedIconID = frame;
+		m_fields->_currentIconID = frame;
 	}
 
 	void setupIconSelectNotGDOne() {
@@ -579,22 +732,54 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 
 		auto menu = findIconsPage();
 
-		m_fields->_processingAnimation = false;
-		m_fields->_targetedIcon = (CCMenuItemSpriteExtra *)menu->getChildByTag(NGlobal::destroyID);
+		setupVariables();
+	}
+
+	void resetNuzlockePopup(CCObject *sender) {
+		if (m_fields->_processingAnimation) {
+			FLAlertLayer::create("Nuzlocke", "<cy>I'll reset you.</c>", "Noooo")->show();
+
+			return;
+		}
+
+		NGlobal::giveUp->setupInsideGarage();
+		NGlobal::printResetPopup();
 	}
 
 	bool init() {
-		// NGlobal::garageDestroyIcon = true;
-		// NGlobal::destroyID = 16;
-		// NGlobal::deadIcons.clear();
-		// for (int i = 0; i < 16; i++) {
-		// 	NGlobal::deadIcons.push_back(i);
-		// }
+		// setupTestAnimation();
+		NGlobal::currentGarage = this;
 
 		bool val = NGlobal::garageDestroyIcon;
 		bool val2 = NGlobal::garageBeginIconSelect;
 
+		const auto& winSize = CCDirector::sharedDirector()->getWinSize();
+
+		auto bs = ButtonSprite::create("Reset Nuzlocke");
+		auto mn = CCMenu::create();
+		auto resetbtn = CCMenuItemSpriteExtra::create(
+			bs,
+			this,
+			menu_selector(NGJGarageLayer::resetNuzlockePopup)
+		);
+
+		bs->setScale(0.5f);
+
+		auto csz = bs->getContentSize();
+		csz.width *= 0.5f;
+		csz.height *= 0.5f;
+
+		// resetbtn->setContentSize(csz);
+
+		mn->addChild(resetbtn);
+		mn->setPositionY(winSize.height - (csz.height) - 2.5f);
+
+		mn->setID("reset-menu"_spr);
+		resetbtn->setID("reset-btn"_spr);
+
 		if (!GJGarageLayer::init()) return false;
+
+		addChild(mn, 10);
 
 		if (val2) {
 			setupIconSelectNotGDOne();
@@ -612,8 +797,8 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 
 			auto menu = findIconsPage();
 
+			setupVariables();
 			m_fields->_processingAnimation = true;
-			m_fields->_targetedIcon = (CCMenuItemSpriteExtra *)menu->getChildByTag(NGlobal::destroyID);
 
 			setupDestroyAnimation(false);
 
@@ -668,9 +853,9 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 	}
 
 	void setupPage(int page, IconType type) {
-		if (m_fields->_processingAnimation) return;
+		if (m_fields->_processingAnimation) return;	
 
-		
+		m_fields->_pageType = type;	
 
 		GJGarageLayer::setupPage(page, type);
 
@@ -693,20 +878,22 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 				auto v = NGlobal::deadIcons;
 
 				if(std::find(v.begin(), v.end(), obj->getTag()) != v.end()) {
-					float offset = 0.f;
+					if (obj->getTag() != NGlobal::destroyID) {
+						float offset = 0.f;
 
-					if (NGlobal::garageDestroyIcon) {
-						offset = 1.f;
+						if (NGlobal::garageDestroyIcon) {
+							offset = 1.f;
+						}
+
+						auto x = XLayer::create();
+						x->_btn = obj;
+
+						x->fixPosition();
+						x->setupAnimation(offset);
+
+						obj->addChild(x);
+						obj->setEnabled(false);
 					}
-
-					auto x = XLayer::create();
-					x->_btn = obj;
-
-					x->fixPosition();
-					x->setupAnimation(offset);
-
-					obj->addChild(x);
-					obj->setEnabled(false);
 				}
 			}
 
@@ -722,16 +909,22 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 		GJGarageLayer::onNavigate(sender);
 	}
 	
-	void onShop(CCObject *sender) {
-		log::info("b");
+	// void onShop(CCObject *sender) {
+	// 	log::info("b");
 
-		if (m_fields->_processingAnimation) return;
+	// 	// if (m_fields->_processingAnimation) return;
 
-		GJGarageLayer::onShop(sender);
-	}
+	// 	GJGarageLayer::onShop(sender);
+	// }
 
 	void onSelect(CCObject *sender) {
 		log::info("c");
+
+		if (m_fields->_pageType != IconType::Cube) {
+			GJGarageLayer::onSelect(sender);
+
+			return;
+		}
 
 		if (m_fields->_processingAnimation) return;
 
@@ -743,6 +936,7 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 
 		int tag = sender->getTag();
 		m_fields->_selectedIcon = (CCMenuItemSpriteExtra *)sender;
+		m_fields->_selectedIconID = tag;
 
 		IconNamingPopup *popup = IconNamingPopup::create(tag);
 	}
@@ -755,66 +949,57 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 		GJGarageLayer::onSelectTab(sender);
 	}
 
-	void keyBackClicked() {
-		log::info("e");
+	bool verifyIcon() {
+		if (m_fields->_processingAnimation) return false;
 
-		if (m_fields->_processingAnimation) return;
+		int frame = getPlayerFrame();
+		
+		log::info("frame={}", frame);
 
-		auto icon = m_fields->_selectedIcon;
-		if (icon == nullptr) icon = m_currentIcon;
+		auto icon = m_fields->_selectedIconID;
+		if (icon == 0) icon = m_fields->_currentIconID;
+		if (icon == 0) icon = frame;
 
-		if (NGlobal::garageBeginIconSelect && (m_fields->_targetedIcon == icon)) {
-			FLAlertLayer::create("Nuzlocke", "You have to <cy>choose new icon</c> before playing levels", "OK")->show();
+		log::info("icon={}", icon);
 
-			return;
+		if (NGlobal::garageBeginIconSelect && (m_fields->_targetedIconID == icon)) {
+			NGlobal::giveUp->setupInsideGarage();
+			NGlobal::printNewIconError();
+
+			return false;
 		}
 
 		NGlobal::garageBeginIconSelect = false;
 		
-		int tag = icon->getTag();
+		int tag = icon;
 
 		if (!NGlobal::iconNames.count(tag)) {
-			log::info("no username available, creating popup...");
+			log::info("tag={}, no username available, creating popup...", tag);
 
 			IconNamingPopup *popup = IconNamingPopup::create(tag);
 
-			return;
+			return false;
 		}
 
-		GJGarageLayer::keyBackClicked();
+		return true;
+	}
+
+	void keyBackClicked() {
+		log::info("e");
+
+		if (verifyIcon()) GJGarageLayer::keyBackClicked();
 	}
 
 	void onBack(CCObject *sender) {
 		log::info("f");
 
-		if (m_fields->_processingAnimation) return;
-		
-		auto icon = m_fields->_selectedIcon;
-		if (icon == nullptr) icon = m_currentIcon;
-
-		if (NGlobal::garageBeginIconSelect && (m_fields->_targetedIcon == icon)) {
-			FLAlertLayer::create("Nuzlocke", "You have to <cy>choose new icon</c> before playing levels", "OK")->show();
-
-			return;
-		}
-
-		NGlobal::garageBeginIconSelect = false;
-		
-		int tag = icon->getTag();
-
-		if (!NGlobal::iconNames.count(tag)) {
-			log::info("no username available, creating popup...");
-
-			IconNamingPopup *popup = IconNamingPopup::create(tag);
-
-			return;
-		}
-
-		GJGarageLayer::onBack(sender);
+		if (verifyIcon()) GJGarageLayer::onBack(sender);
 	}
 
 	void showUnlockPopup(int p0, UnlockType p1) {
 		m_fields->_clickedOnLockedIcon = true;
+
+		GJGarageLayer::showUnlockPopup(p0, p1);
 	}
 };
 
@@ -833,10 +1018,34 @@ class $modify(NMenuLayer, MenuLayer) {
 			return false;
 		}
 
+		log::info("what if player has been killed?");
+
+		auto v = NGlobal::deadIcons;
+
+		if(std::find(v.begin(), v.end(), frame) != v.end()) {
+			log::info("it WAS killed. ok");
+
+			NGlobal::giveUp->setupOutsideGarage();
+			NGlobal::printDeadIconError();
+
+			return false;
+		}
+
+		log::info("it WAS NOT killed");
+
 		return true;
 	}
 
 	void askForIconNameS(float delta) {
+		if (!NGlobal::newAccountPopupShown) {
+			FLAlertLayer::create(&NGlobal::popup, "Nuzlocke", "<cg>Nuzlocke Challenge</c> mod recommends you to <cr>unlink</c> your account before playing with this mod.\n<cy>If unlinking please make sure that you savedata is backed up!!</c>\n<cg>Do you want to unlink your account first?</c>", "Yes", "No")->show();
+		
+			NGlobal::newAccountPopupShown = true;
+			NGlobal::save();
+
+			return;
+		}
+
 		askForIconName();
 	}
 
@@ -874,5 +1083,24 @@ class $modify(NMenuLayer, MenuLayer) {
 };
 
 $execute {
+	NGlobal::setupProtocols();
 	NGlobal::recover();
 }
+
+class $modify(NPauseLayer, PauseLayer) {
+	bool checkPlayer() {
+		return NGlobal::destroyID == 0; 
+	}
+
+#define PLCALL(func) void func(CCObject *sender) { if (!checkPlayer()) return; PauseLayer::func(sender); }
+
+	PLCALL(onEdit);
+	PLCALL(onNormalMode);
+	PLCALL(onPracticeMode);
+	PLCALL(onRestart);
+	PLCALL(onRestartFull);
+	PLCALL(onQuit);
+	PLCALL(tryQuit);
+	
+#undef PLCALL
+};

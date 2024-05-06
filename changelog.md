@@ -1,8 +1,3 @@
-# Nuzlocke
-
-This is where she makes a mod.
-
-# Changelog
 # v1.0.2
 - Nuzlocke progress now can be resetted
 - Fixed The Tower crash
