@@ -16,6 +16,8 @@ using namespace geode::prelude;
 #include <Geode/modify/PauseLayer.hpp>
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/modify/MenuLayer.hpp>
+#include <Geode/binding/GJGameLevel.hpp>
+#include <Geode/binding/GJGameLoadingLayer.hpp>
 
 #include "json/single_include/nlohmann/json.hpp"
 
@@ -102,6 +104,8 @@ namespace NGlobal {
 	bool newAccountPopupShown = false;
 	NewAccountProtocol popup;
 	GiveUpProtocol *giveUp;
+	GJGameLevel *loadedLevel;
+	GJGameLevel *loadedLevelL;
 
 	void save() {
 		nlohmann::json main;
@@ -177,6 +181,38 @@ namespace NGlobal {
 	void printResetPopup() {
 		FLAlertLayer::create(giveUp, "Nuzlocke", "Are you sure you want to <cy>reset Nuzlocke progress</c>?", "No", "Yes")->show();
 	}
+
+	GJGameLevel *copyLevel(GJGameLevel *_lvl) {
+		DS_Dictionary *dict = new DS_Dictionary();
+
+		_lvl->encodeWithCoder(dict);
+
+		GJGameLevel *lvl = GJGameLevel::createWithCoder(dict);
+		lvl->retain();
+
+		lvl->m_levelString = _lvl->m_levelString;
+
+		delete dict;
+
+		log::info("copied level name : {}", lvl->m_levelName);
+		// log::info("copied level string: {}", lvl->m_levelString);
+
+		return lvl;
+	}
+
+	void replaceSceneWithLayer(CCLayer *layer) {
+		CCScene *scene = CCScene::create();
+		scene->addChild(layer);
+
+		auto transition = CCTransitionFade::create(0.5f, scene);
+
+		CCDirector::sharedDirector()->replaceScene(transition);
+	}
+
+	void moveIntoLevel() {
+		auto layer = PlayLayer::create(loadedLevel, false, false);
+		replaceSceneWithLayer(layer);
+	}
 };
 
 class $modify(NPlayLayer, PlayLayer) {
@@ -244,6 +280,7 @@ class $modify(NPlayLayer, PlayLayer) {
 		
 		scheduleOnce(schedule_selector(NPlayLayer::setupIconLoss), 1.f);
 
+		NGlobal::loadedLevel = NGlobal::copyLevel(NGlobal::loadedLevelL);
 		// NGlobal::deadIcons.clear();
 		// for (int i = 0; i < 16; i++) {
 		// 	NGlobal::deadIcons.push_back(i);
@@ -265,6 +302,7 @@ class $modify(NPlayLayer, PlayLayer) {
 
 		NGlobal::garageDestroyIcon = false;
 		NGlobal::destroyID = 0;
+		NGlobal::loadedLevelL = level;
 
 		return true;
 	}
@@ -710,13 +748,15 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 
 	void setupVariables() {
 		auto menu = findIconsPage();
+		int frame = getPlayerFrame();
 
 		m_fields->_processingAnimation = false;
 		m_fields->_targetedIcon = (CCMenuItemSpriteExtra *)menu->getChildByTag(NGlobal::destroyID);
 		m_fields->_targetedIconID = NGlobal::destroyID;
+		if (m_fields->_targetedIconID == 0) {
+			m_fields->_targetedIconID = frame;
+		}
 		m_fields->_currentIconID = m_currentIcon->getTag();
-
-		int frame = getPlayerFrame();
 
 		m_fields->_selectedIconID = frame;
 		m_fields->_currentIconID = frame;
@@ -950,36 +990,44 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 	}
 
 	bool verifyIcon() {
+		log::info("do we doing icon anim?");
 		if (m_fields->_processingAnimation) return false;
 
 		int frame = getPlayerFrame();
 		
 		log::info("frame={}", frame);
 
-		auto icon = m_fields->_selectedIconID;
-		if (icon == 0) icon = m_fields->_currentIconID;
-		if (icon == 0) icon = frame;
+		auto icon = frame;
+		// if (icon == 0) icon = m_fields->_currentIconID;
+		// if (icon == 0) icon = frame;
 
 		log::info("icon={}", icon);
 
+		log::info("no. do we selecting icon? if yes then did player change icon?");
 		if (NGlobal::garageBeginIconSelect && (m_fields->_targetedIconID == icon)) {
+			log::info("he did not. returning error");
 			NGlobal::giveUp->setupInsideGarage();
 			NGlobal::printNewIconError();
 
 			return false;
 		}
 
+		log::info("seems that player did change their icon. or garage is not in select mode. anyway thats good");
+		log::info("heres some proofs: icon={}; target={}; garageBeginIconSelect={}", icon, m_fields->_targetedIconID, NGlobal::garageBeginIconSelect);
+
 		NGlobal::garageBeginIconSelect = false;
 		
 		int tag = icon;
 
+		log::info("do we know about this icon?");
 		if (!NGlobal::iconNames.count(tag)) {
-			log::info("tag={}, no username available, creating popup...", tag);
+			log::info("no. tag={}, no username available, creating popup...", tag);
 
 			IconNamingPopup *popup = IconNamingPopup::create(tag);
 
 			return false;
 		}
+		log::info("we know. everything is good. keep playing, gd player");
 
 		return true;
 	}
@@ -987,13 +1035,31 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 	void keyBackClicked() {
 		log::info("e");
 
-		if (verifyIcon()) GJGarageLayer::keyBackClicked();
+		bool val2 = NGlobal::garageBeginIconSelect;
+
+		if (verifyIcon()) {
+			log::info("verify icon succeded");
+			if (!val2) {
+				GJGarageLayer::keyBackClicked();
+			} else {
+				NGlobal::moveIntoLevel();
+			}
+		}
 	}
 
 	void onBack(CCObject *sender) {
 		log::info("f");
 
-		if (verifyIcon()) GJGarageLayer::onBack(sender);
+		bool val2 = NGlobal::garageBeginIconSelect;
+
+		if (verifyIcon()) {
+			log::info("verify icon succeded");
+			if (!val2) {
+				GJGarageLayer::onBack(sender);
+			} else {
+				NGlobal::moveIntoLevel();;
+			}
+		}
 	}
 
 	void showUnlockPopup(int p0, UnlockType p1) {
@@ -1038,7 +1104,7 @@ class $modify(NMenuLayer, MenuLayer) {
 
 	void askForIconNameS(float delta) {
 		if (!NGlobal::newAccountPopupShown) {
-			FLAlertLayer::create(&NGlobal::popup, "Nuzlocke", "<cg>Nuzlocke Challenge</c> mod recommends you to <cr>unlink</c> your account before playing with this mod.\n<cy>If unlinking please make sure that you savedata is backed up!!</c>\n<cg>Do you want to unlink your account first?</c>", "Yes", "No")->show();
+			FLAlertLayer::create(&NGlobal::popup, "Nuzlocke", "<cg>Nuzlocke Challenge</c> mod recommends you to <cr>unlink</c> your account before playing with this mod.\n<cy>If unlinking please make sure that your savedata is backed up!!</c>\n<cg>Do you want to unlink your account first?</c>", "Yes", "No")->show();
 		
 			NGlobal::newAccountPopupShown = true;
 			NGlobal::save();
