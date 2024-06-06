@@ -33,12 +33,29 @@ public:
 	void FLAlert_Clicked(FLAlertLayer *p0, bool p1) {
 		if (p1) return FLAlertLayerProtocol::FLAlert_Clicked(p0, p1);
 
-		CCScene *scene = CCScene::get();
-		auto help = AccountHelpLayer::create();
+		log::info("CREATING SCENE");
 
+		CCScene *scene = CCScene::get();
+
+		log::info("CREATING ACCOUNTHELPLAYER");
+		AccountHelpLayer *l = new AccountHelpLayer();
+
+		log::info("b");
+		l->init("Account Help");
+		log::info("c");
+		l->autorelease();
+		log::info("d");
+		l->customSetup();
+
+		auto help = l;
+
+		// auto help = AccountHelpLayer::create();
+
+		log::info("ADDING HELP LAYER");
 		scene->addChild(help, 1000);
 
-		help->enterLayer();
+		log::info("SHOWING HELP LAYER");
+		help->showLayer(true);
 
 		FLAlertLayerProtocol::FLAlert_Clicked(p0, p1);
 	}
@@ -187,7 +204,11 @@ namespace NGlobal {
 
 		_lvl->encodeWithCoder(dict);
 
-		GJGameLevel *lvl = GJGameLevel::createWithCoder(dict);
+		// GJGameLevel *lvl = (GJGameLevel *)GJGameLevel::createWithCoder(dict);
+		// lvl->retain();
+
+		GJGameLevel *lvl = GJGameLevel::create();
+		lvl->dataLoaded(dict);
 		lvl->retain();
 
 		lvl->m_levelString = _lvl->m_levelString;
@@ -200,28 +221,32 @@ namespace NGlobal {
 		return lvl;
 	}
 
-	void replaceSceneWithLayer(CCLayer *layer) {
-		CCScene *scene = CCScene::create();
-		scene->addChild(layer);
-
+	void replaceScene(CCScene *scene) {
 		auto transition = CCTransitionFade::create(0.5f, scene);
 
 		CCDirector::sharedDirector()->replaceScene(transition);
 	}
+	void replaceSceneWithLayer(CCLayer *layer) {
+		CCScene *scene = CCScene::create();
+		scene->addChild(layer);
+
+		replaceScene(scene);
+	}
 
 	void moveIntoLevel() {
-		auto layer = PlayLayer::create(loadedLevel, false, false);
-		replaceSceneWithLayer(layer);
+		replaceScene(PlayLayer::scene(loadedLevel, false, false));
 	}
 };
 
 class $modify(NPlayLayer, PlayLayer) {
-	float player_x_old;
-	float player_x_new;
-	float player_x_delta;
+	struct Fields {
+		float player_x_old;
+		float player_x_new;
+		float player_x_delta;
 
-	bool levelStarted = false;
-	bool runningAnimation = false;
+		bool levelStarted = false;
+		bool runningAnimation = false;
+	};
 
 	bool isPlayerDead() {
 		return m_player1->m_isDead || m_player2->m_isDead;
@@ -575,15 +600,17 @@ public:
 #include <unordered_map>
 
 class $modify(NGJGarageLayer, GJGarageLayer) {
-	bool _processingAnimation = false;
-	float _currentSoundVol = 1.f;
-	CCMenuItemSpriteExtra *_targetedIcon;
-	CCMenuItemSpriteExtra *_selectedIcon;
-	int _targetedIconID = 0;
-	int _selectedIconID = 0;
-	int _currentIconID = 0;
-	bool _clickedOnLockedIcon = false;
-	IconType _pageType;
+	struct Fields {
+		bool _processingAnimation = false;
+		float _currentSoundVol = 1.f;
+		CCMenuItemSpriteExtra *_targetedIcon;
+		CCMenuItemSpriteExtra *_selectedIcon;
+		int _targetedIconID = 0;
+		int _selectedIconID = 0;
+		int _currentIconID = 0;
+		bool _clickedOnLockedIcon = false;
+		IconType _pageType;
+	};
 
 	// std::unordered_map<CCMenuItemSpriteExtra *, bool> _iconTable;
 
@@ -1103,6 +1130,8 @@ class $modify(NMenuLayer, MenuLayer) {
 	}
 
 	void askForIconNameS(float delta) {
+		NGlobal::newAccountPopupShown = false;
+
 		if (!NGlobal::newAccountPopupShown) {
 			FLAlertLayer::create(&NGlobal::popup, "Nuzlocke", "<cg>Nuzlocke Challenge</c> mod recommends you to <cr>unlink</c> your account before playing with this mod.\n<cy>If unlinking please make sure that your savedata is backed up!!</c>\n<cg>Do you want to unlink your account first?</c>", "Yes", "No")->show();
 		
