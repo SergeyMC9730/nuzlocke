@@ -391,7 +391,9 @@ public:
 
 		auto particle = CCParticleSystemQuad::create("explodeEffect.plist", false);
 		particle->setScale(_particleScale);
+#ifdef _WIN32
 		particle->setOpacity(128);
+#endif
 		alignNode(particle);
 
 		addChild(particle);
