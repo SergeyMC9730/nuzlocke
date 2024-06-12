@@ -31,31 +31,31 @@ class NGJGarageLayer;
 class NewAccountProtocol : public FLAlertLayerProtocol {
 public:
 	void FLAlert_Clicked(FLAlertLayer *p0, bool p1) {
-		if (p1) return FLAlertLayerProtocol::FLAlert_Clicked(p0, p1);
+		// if (p1) return FLAlertLayerProtocol::FLAlert_Clicked(p0, p1);
 
-		log::info("CREATING SCENE");
+		// log::info("CREATING SCENE");
 
-		CCScene *scene = CCScene::get();
+		// CCScene *scene = CCScene::get();
 
-		log::info("CREATING ACCOUNTHELPLAYER");
-		AccountHelpLayer *l = new AccountHelpLayer();
+		// log::info("CREATING ACCOUNTHELPLAYER");
+		// AccountHelpLayer *l = new AccountHelpLayer();
 
-		log::info("b");
-		l->init("Account Help");
-		log::info("c");
-		l->autorelease();
-		log::info("d");
-		l->customSetup();
+		// log::info("b");
+		// l->init("Account Help");
+		// log::info("c");
+		// l->autorelease();
+		// log::info("d");
+		// l->customSetup();
 
-		auto help = l;
+		// auto help = l;
 
-		// auto help = AccountHelpLayer::create();
+		// // auto help = AccountHelpLayer::create();
 
-		log::info("ADDING HELP LAYER");
-		scene->addChild(help, 1000);
+		// log::info("ADDING HELP LAYER");
+		// scene->addChild(help, 1000);
 
-		log::info("SHOWING HELP LAYER");
-		help->showLayer(true);
+		// log::info("SHOWING HELP LAYER");
+		// help->showLayer(true);
 
 		FLAlertLayerProtocol::FLAlert_Clicked(p0, p1);
 	}
@@ -1133,7 +1133,7 @@ class $modify(NMenuLayer, MenuLayer) {
 		NGlobal::newAccountPopupShown = false;
 
 		if (!NGlobal::newAccountPopupShown) {
-			FLAlertLayer::create(&NGlobal::popup, "Nuzlocke", "<cg>Nuzlocke Challenge</c> mod recommends you to <cr>unlink</c> your account before playing with this mod.\n<cy>If unlinking please make sure that your savedata is backed up!!</c>\n<cg>Do you want to unlink your account first?</c>", "Yes", "No")->show();
+			FLAlertLayer::create("Nuzlocke", "<cg>Nuzlocke Challenge</c> mod recommends you to <cr>unlink</c> your account before playing with this mod.\n<cy>If unlinking please make sure that your savedata is backed up!!</c>", "OK")->show();
 		
 			NGlobal::newAccountPopupShown = true;
 			NGlobal::save();
