@@ -1132,8 +1132,6 @@ class $modify(NMenuLayer, MenuLayer) {
 	}
 
 	void askForIconNameS(float delta) {
-		NGlobal::newAccountPopupShown = false;
-
 		if (!NGlobal::newAccountPopupShown) {
 			FLAlertLayer::create("Nuzlocke", "<cg>Nuzlocke Challenge</c> mod recommends you to <cr>unlink</c> your account before playing with this mod.\n<cy>If unlinking please make sure that your savedata is backed up!!</c>", "OK")->show();
 		
