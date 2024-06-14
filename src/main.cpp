@@ -901,7 +901,7 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 		CCNode *lbb = m_iconSelection;
 		if (!lbb) return nullptr;
 #endif
-#ifdef __ANDROID_
+#ifndef _WIN32
 		CCNode *lbb = this->getChildByID("icon-selection-bar");
 		if (!lbb) return nullptr;
 #endif

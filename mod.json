@@ -13,5 +13,17 @@
 		"files": [
 			"banner.png"
 		]
-	}
+	},
+	"dependencies": [
+        {
+            "id": "geode.node-ids",
+            "version": ">=1.12.0-beta.4",
+            "importance": "required"
+        },
+		{
+            "id": "dogotrigger.deathreplay",
+            "version": "*",
+            "importance": "suggested"
+        }
+    ]
 }
