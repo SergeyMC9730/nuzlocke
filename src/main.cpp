@@ -236,6 +236,25 @@ namespace NGlobal {
 	void moveIntoLevel() {
 		replaceScene(PlayLayer::scene(loadedLevel, false, false));
 	}
+
+	template<typename T>
+	std::vector<T *> findInstancesOfObj(cocos2d::CCNode *node) {
+		CCArray *children = node->getChildren();
+
+		std::vector<T *> objs = {};
+
+		for (int i = 0; i < children->count(); i++) {
+			cocos2d::CCObject *_obj = children->objectAtIndex(i);
+
+			T *dyn = typeinfo_cast<T *>(_obj);
+
+			if (dyn != nullptr) {
+				objs.push_back(dyn);
+			}
+		}
+
+		return objs;
+	}
 };
 
 class $modify(NPlayLayer, PlayLayer) {
@@ -878,47 +897,32 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 	}
 
 	CCMenu *findIconsPage() {
-		auto lbb = m_iconSelection;
-		auto elements = m_iconSelection->getChildren();
+#ifdef _WIN32
+		CCNode *lbb = m_iconSelection;
+		if (!lbb) return nullptr;
+#endif
+#ifdef _ANDROID_
+		CCNode *lbb = this->getChildByID("icon-selection-bar");
+		if (!lbb) return nullptr;
+#endif
 
-		for (int i = 0; i < elements->count(); i++) {
-			auto obj1 = dynamic_cast<BoomScrollLayer *>(elements->objectAtIndex(i));
+#define FIND_OBJECT_INSTANCE(obj, var, node) std::vector<obj *> v_##var = NGlobal::findInstancesOfObj<obj>(node); if (v_##var.size() == 0) return nullptr; auto var = v_##var[0]
 
-			if (obj1 != nullptr) {
-				auto elements1 = obj1->getChildren();
-				obj1->setID("scroll-layer");
+		FIND_OBJECT_INSTANCE(BoomScrollLayer, obj1, lbb);
+		obj1->setID("scroll-layer");
 
-				for (int i1 = 0; i1 < elements1->count(); i1++) {
-					auto obj2 = dynamic_cast<ExtendedLayer *>(elements1->objectAtIndex(i1));
+		FIND_OBJECT_INSTANCE(ExtendedLayer, obj2, obj1);
+		obj2->setID("extended-layer");
 
-					if (obj2 != nullptr) {
-						auto elements2 = obj2->getChildren();
-						obj2->setID("extended-layer");
+		FIND_OBJECT_INSTANCE(ListButtonPage, obj3, obj2);
+		obj3->setID("icons-page");
 
-						for (int i2 = 0; i2 < elements2->count(); i2++) {
-							auto obj3 = dynamic_cast<ListButtonPage *>(elements2->objectAtIndex(i2));
+		FIND_OBJECT_INSTANCE(CCMenu, obj4, obj3);
+		obj4->setID("icons-menu");
 
-							if (obj3 != nullptr) {
-								auto elements3 = obj3->getChildren();
-								obj3->setID("icons-page");
+#undef FIND_OBJECT_INSTANCE
 
-								for (int i3 = 0; i3 < elements3->count(); i3++) {
-									auto obj4 = dynamic_cast<CCMenu *>(elements3->objectAtIndex(i3));
-
-									if (obj4 != nullptr) {
-										obj4->setID("icons-menu");
-
-										return obj4;	
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		return nullptr;
+		return obj4;
 	}
 
 	void setupPage(int page, IconType type) {
