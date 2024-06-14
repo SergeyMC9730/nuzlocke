@@ -862,8 +862,8 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 		mn->addChild(resetbtn);
 		mn->setPositionY(winSize.height - (csz.height) - 2.5f);
 
-		mn->setID("reset-menu"_spr);
-		resetbtn->setID("reset-btn"_spr);
+		mn->setID("nuzlocke-reset-menu");
+		resetbtn->setID("nuzlocke-reset-btn");
 
 		if (!GJGarageLayer::init()) return false;
 
