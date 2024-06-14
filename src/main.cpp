@@ -897,15 +897,8 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 	}
 
 	CCMenu *findIconsPage() {
-#ifdef _WIN32
 		CCNode *lbb = m_iconSelection;
 		if (!lbb) return nullptr;
-#endif
-#ifndef _WIN32
-		CCNode *lbb = this->getChildByID("icon-selection-bar");
-		if (!lbb) return nullptr;
-#endif
-
 #define FIND_OBJECT_INSTANCE(obj, var, node) std::vector<obj *> v_##var = NGlobal::findInstancesOfObj<obj>(node); if (v_##var.size() == 0) return nullptr; auto var = v_##var[0]
 
 		FIND_OBJECT_INSTANCE(BoomScrollLayer, obj1, lbb);
