@@ -1,3 +1,6 @@
+# v1.0.5
+- Changed Geode SDK version to `v3.0.0-beta.1`
+
 # v1.0.4
 - Changed Geode SDK version to `v3.0.0-alpha.2`
 - Added Android support
