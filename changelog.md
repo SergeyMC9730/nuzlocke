@@ -1,3 +1,6 @@
+# v1.0.6
+- Changed Geode SDK version to `v4.0.1`
+
 # v1.0.5
 - Changed Geode SDK version to `v3.0.0-beta.1`
 
