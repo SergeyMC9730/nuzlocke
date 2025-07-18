@@ -1,3 +1,9 @@
+# v1.0.7
+- Changed Geode SDK version to `v4.6.3`
+- Android support (hopefully)
+- macOS support
+- iOS support
+
 # v1.0.6
 - Changed Geode SDK version to `v4.0.1`
 

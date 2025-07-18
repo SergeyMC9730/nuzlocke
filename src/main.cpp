@@ -298,7 +298,7 @@ class $modify(NPlayLayer, PlayLayer) {
 			saveKilledPlayer();
 		}
 	}
-	
+
 	void setupIconLoss(float delta) {
 		NGlobal::garageDestroyIcon = true;
 
@@ -321,7 +321,7 @@ class $modify(NPlayLayer, PlayLayer) {
 		base->runAction(CCFadeTo::create(1.f, 255));
 
 		addChild(base, 9999);
-		
+
 		scheduleOnce(schedule_selector(NPlayLayer::setupIconLoss), 1.f);
 
 		NGlobal::loadedLevel = NGlobal::copyLevel(NGlobal::loadedLevelL);
@@ -351,11 +351,11 @@ class $modify(NPlayLayer, PlayLayer) {
 		return true;
 	}
 
-	bool canPauseGame() {
-		if (m_fields->runningAnimation == true) return false;
-		
-		return PlayLayer::canPauseGame();
-	}
+	// bool canPauseGame() {
+	// 	if (m_fields->runningAnimation == true) return false;
+
+	// 	return PlayLayer::canPauseGame();
+	// }
 
 	void showRetryLayer() {
 		if (NGlobal::destroyID != 0) return;
@@ -394,15 +394,15 @@ public:
 
 	void runAnimation(float delta) {
 		_x->setScale(_baseScale);
-		
+
 		float dur = _duration;
-		
+
     	_x->runAction(cocos2d::CCEaseBounceOut::create(cocos2d::CCScaleTo::create(dur, 1.0)));
 		_x->runAction(CCFadeTo::create(dur, 255));
 
 		grayOutBox();
 
-		CCCircleWave *wave = CCCircleWave::create(10.f, _waveScale, dur, false, true);	
+		CCCircleWave *wave = CCCircleWave::create(10.f, _waveScale, dur, false, true);
 		wave->m_color = ccRED;
 		alignNode(wave);
 
@@ -453,12 +453,12 @@ public:
 		base->setColor({0, 0, 0});
 		base->setOpacity(0);
 		base->runAction(cocos2d::CCFadeTo::create(0.5f, 125));
-		
+
 		alignNode(base);
-		
+
 		addChild(base, 0);
 	}
-	
+
 	void setDuration(float dur) {
 		_duration = dur;
 	}
@@ -530,15 +530,15 @@ public:
 	}
 
     static IconNamingPopup* create(int iconID) {
-		IconNamingPopup* pRet = new IconNamingPopup(); 
-		if (pRet && pRet->init(iconID)) { 
+		IconNamingPopup* pRet = new IconNamingPopup();
+		if (pRet && pRet->init(iconID)) {
 			pRet->autorelease();
 			return pRet;
 		} else {
 			delete pRet;
 			pRet = 0;
-			return 0; 
-		} 
+			return 0;
+		}
 	}
     bool init(int iconID) {
 		if (!FLAlertLayer::init(0)) return false;
@@ -562,7 +562,7 @@ public:
 		bmf->setScale(0.8f);
 		bmf->setPositionX(winsize.width / 2);
 		bmf->setPositionY(winsize.height / 2 + spr1->getContentSize().height / 2 - 30);
-				
+
 		objectSelector->addChild(bmf, 1);
 
 		auto exitBtn = CCSprite::createWithSpriteFrameName("GJ_closeBtn_001.png");
@@ -571,7 +571,7 @@ public:
 		);
 
 		CCMenu *men2 = CCMenu::create();
-    
+
 		men2->setPosition({
 			winsize.width / 2 - spr1->getContentSize().width / 2,
 			winsize.height / 2 + spr1->getContentSize().height / 2
@@ -579,7 +579,7 @@ public:
 		men2->addChild(btn3);
 
 		objectSelector->addChild(men2, 2);
-		
+
 		TextInput *in = TextInput::create(200, "Enter icon name...", "chatFont.fnt");
 		in->setPosition(winsize.width / 2, winsize.height / 2);
 		in->setAnchorPoint({0.5f, 0.5f});
@@ -654,7 +654,7 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 
 			iter++;
 		}
-	
+
 		log::info("iter={}, parent=nullptr, pos={}", iter, p);
 
 		return p;
@@ -688,7 +688,7 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 	void playDEffect1(float delta) {
 		FMODAudioEngine *engine = FMODAudioEngine::sharedEngine();
 		engine->playEffect("explode_11.ogg", 1.f, 0.5f, m_fields->_currentSoundVol);
-		
+
 		log::info("vol={}", m_fields->_currentSoundVol);
 
 		m_fields->_currentSoundVol /= 1.8f;
@@ -744,7 +744,7 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 		auto x = XLayer::create();
 		x->setDuration(1.f);
 		x->setWaveScale(50.f);
-		x->setParticleScale(0.8f);	
+		x->setParticleScale(0.8f);
 		x->_btn = m_fields->_targetedIcon;
 		x->fixPosition();
 		x->setBaseScale(5.f);
@@ -919,9 +919,9 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 	}
 
 	void setupPage(int page, IconType type) {
-		if (m_fields->_processingAnimation) return;	
+		if (m_fields->_processingAnimation) return;
 
-		m_fields->_pageType = type;	
+		m_fields->_pageType = type;
 
 		GJGarageLayer::setupPage(page, type);
 
@@ -933,7 +933,7 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 
 				return;
 			}
-			
+
 			auto icons = menu->getChildren();
 
 			for (int i = 0; i < icons->count(); i++) {
@@ -974,7 +974,7 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 
 		GJGarageLayer::onNavigate(sender);
 	}
-	
+
 	// void onShop(CCObject *sender) {
 	// 	log::info("b");
 
@@ -1020,7 +1020,7 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 		if (m_fields->_processingAnimation) return false;
 
 		int frame = getPlayerFrame();
-		
+
 		log::info("frame={}", frame);
 
 		auto icon = frame;
@@ -1042,7 +1042,7 @@ class $modify(NGJGarageLayer, GJGarageLayer) {
 		log::info("heres some proofs: icon={}; target={}; garageBeginIconSelect={}", icon, m_fields->_targetedIconID, NGlobal::garageBeginIconSelect);
 
 		NGlobal::garageBeginIconSelect = false;
-		
+
 		int tag = icon;
 
 		log::info("do we know about this icon?");
@@ -1131,7 +1131,7 @@ class $modify(NMenuLayer, MenuLayer) {
 	void askForIconNameS(float delta) {
 		if (!NGlobal::newAccountPopupShown) {
 			FLAlertLayer::create("Nuzlocke", "<cg>Nuzlocke Challenge</c> mod recommends you to <cr>unlink</c> your account before playing with this mod.\n<cy>If unlinking please make sure that your savedata is backed up!!</c>", "OK")->show();
-		
+
 			NGlobal::newAccountPopupShown = true;
 			NGlobal::save();
 
@@ -1181,7 +1181,7 @@ $execute {
 
 class $modify(NPauseLayer, PauseLayer) {
 	bool checkPlayer() {
-		return NGlobal::destroyID == 0; 
+		return NGlobal::destroyID == 0;
 	}
 
 #define PLCALL(func) void func(CCObject *sender) { if (!checkPlayer()) return; PauseLayer::func(sender); }
@@ -1193,6 +1193,6 @@ class $modify(NPauseLayer, PauseLayer) {
 	PLCALL(onRestartFull);
 	PLCALL(onQuit);
 	PLCALL(tryQuit);
-	
+
 #undef PLCALL
 };
